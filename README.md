@@ -14,3 +14,25 @@
 ## Документы
 
 - [docs/00-research-stand.md](docs/00-research-stand.md) — платформа, задача, данные, риски, хронометраж
+
+## Локальное окружение
+
+```bash
+py -3.10 -m venv .venv
+.venv/Scripts/python.exe -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+.venv/Scripts/python.exe -m pip install -r requirements.txt
+```
+
+Отдельная строка для torch не случайна: обычный PyPI на Windows отдаёт сборку без CUDA.
+
+## Веса
+
+Лежат в `models/`, в git не уходят (см. `.gitignore`).
+
+| Папка | Что | Размер |
+|---|---|---|
+| `models/sam3_hf` | SAM 3 в формате Hugging Face — сегментация по тексту и клику, трекинг по кадрам | 3,3 ГБ |
+| `models/dinov3-vitb16` | DINOv3 ViT-B/16 — векторные представления, поиск похожего | 327 МБ |
+
+Родной чекпойнт `sam3.pt` (3,45 ГБ) намеренно не копировался: для стенда достаточно формата
+Hugging Face, он не тянет за собой зависимость от локального репозитория SAM 3.

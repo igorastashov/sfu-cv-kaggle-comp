@@ -1,0 +1,35 @@
+# Окружение стенда. Python 3.10.
+#
+# torch ставится отдельно, из индекса под CUDA:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+# Обычный PyPI на Windows отдаёт сборку без CUDA.
+
+# фундаментальные модели: SAM 3, DINOv3, Grounding DINO, OWLv2, Depth Anything v2
+transformers>=4.57
+accelerate
+safetensors
+timm
+
+# работа с изображениями и видео
+pillow
+opencv-python
+imageio
+imageio-ffmpeg
+
+# визуализация: рамки, маски, номера треков
+supervision
+matplotlib
+
+# данные Waymo v2 — колоночный parquet
+pandas
+pyarrow
+dask[dataframe]
+
+# метрики и карты эмбеддингов
+numpy
+scikit-learn
+
+# ноутбуки
+jupyterlab
+ipywidgets
+tqdm

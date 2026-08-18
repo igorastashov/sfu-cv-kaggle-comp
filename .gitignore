@@ -1,6 +1,7 @@
-# данные и веса
+# данные и веса — всё локально, в git не уходит
 data/
 datasets/
+models/
 *.tgz
 *.zip
 *.tfrecord
@@ -8,6 +9,8 @@ datasets/
 *.pt
 *.pth
 *.onnx
+*.safetensors
+*.bin
 
 # python
 __pycache__/
