@@ -5,10 +5,13 @@
 # Обычный PyPI на Windows отдаёт сборку без CUDA.
 
 # фундаментальные модели: SAM 3, DINOv3, Grounding DINO, OWLv2, Depth Anything v2
-transformers>=4.57
+transformers>=5.15
 accelerate
 safetensors
 timm
+
+# без kernels SAM 3 пропускает удаление дублей, заливку дыр и чистку крапа в масках
+kernels
 
 # работа с изображениями и видео
 pillow
