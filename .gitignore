@@ -1,0 +1,23 @@
+# данные и веса
+data/
+datasets/
+*.tgz
+*.zip
+*.tfrecord
+*.parquet
+*.pt
+*.pth
+*.onnx
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# ос и редакторы
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
