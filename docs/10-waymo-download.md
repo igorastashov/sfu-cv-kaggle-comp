@@ -39,23 +39,31 @@ gcloud auth login
 
 ---
 
-## 2. Найти бакет
+## 2. Какую строку брать на странице загрузки
 
-Версии выходили разные, поэтому сначала проверяем, какая доступна:
+На [waymo.com/open/download](https://waymo.com/open/download/) нужна ровно одна строка:
+
+> **Perception Dataset — V 2.0.1 (Modular without maps), March 2024**
+
+Остальное не брать:
+
+| Строка | Почему нет |
+|---|---|
+| Motion Dataset | траектории агентов, изображений нет |
+| Perception **V 1.4.3** | старый формат TFRecord с привязкой к TensorFlow |
+| End-to-End Driving | другая задача |
+| Community Contributions | надстройки поверх основного набора |
+
+Бакет: **`gs://waymo_open_dataset_v_2_0_1`**. Внутри папки `training/`, `validation/`, `testing/`.
 
 ```powershell
-gcloud storage ls gs://waymo_open_dataset_v_2_0_1/ 2>$null
-gcloud storage ls gs://waymo_open_dataset_v_2_0_0/
-```
-
-Берём ту, что откроется, — дальше в командах это `$BUCKET`. Внутри должны быть папки `training/`, `validation/`, `testing/`.
-
-```powershell
-$BUCKET = "gs://waymo_open_dataset_v_2_0_0"
+$BUCKET = "gs://waymo_open_dataset_v_2_0_1"
 gcloud storage ls $BUCKET/validation/
 ```
 
-Ожидаем увидеть список компонентов: `camera_image/`, `camera_box/`, `camera_segmentation/` и прочие.
+Ожидаем список компонентов: `camera_image/`, `camera_box/`, `camera_segmentation/` и прочие.
+
+**Без командной строки тоже можно.** Кнопка Download ведёт в браузер Google Cloud Storage. Там те же папки, и нужные пять файлов скачиваются кликами. CLI удобнее только тем, что список сегментов проще посмотреть и отфильтровать.
 
 ---
 
@@ -70,7 +78,7 @@ gcloud storage ls $BUCKET/validation/camera_segmentation/ | Select-Object -First
 Берём **первое** имя из выдачи, отрезаем путь и расширение `.parquet`. Например, если вывелось
 
 ```
-gs://waymo_open_dataset_v_2_0_0/validation/camera_segmentation/550171902340535682_2640_000_2660_000.parquet
+gs://waymo_open_dataset_v_2_0_1/validation/camera_segmentation/550171902340535682_2640_000_2660_000.parquet
 ```
 
 то

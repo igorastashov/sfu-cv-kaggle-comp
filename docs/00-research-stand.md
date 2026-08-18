@@ -329,7 +329,7 @@ KITTI даёт не только MOTS, но и **официальный набо
 
 Компоненты (по списку из `tutorial_v2.ipynb`): `camera_image`, `camera_box`, `camera_calibration`, `camera_hkp`, `camera_to_lidar_box_association`, `camera_segmentation`, `lidar`, `lidar_box`, `lidar_calibration`, `lidar_camera_projection`, `lidar_camera_synced_box`, `lidar_hkp`, `lidar_pose`, `projected_lidar_box`, `vehicle_pose`, `stats`.
 
-Для стенда обязательны пять: **`camera_image`, `camera_box`, `camera_segmentation`, `camera_calibration`, `vehicle_pose`**. Файлы лежат по схеме `{bucket}/{split}/{component}/{context_name}.parquet`, бакет — `gs://waymo_open_dataset_v_2_0_0`.
+Для стенда обязательны пять: **`camera_image`, `camera_box`, `camera_segmentation`, `camera_calibration`, `vehicle_pose`**. Файлы лежат по схеме `{bucket}/{split}/{component}/{context_name}.parquet`, бакет — `gs://waymo_open_dataset_v_2_0_1`.
 
 **Оговорка по ступени глубины.** Она обходится дороже, чем казалось. Карта расстояний собирается из `lidar_camera_projection` **вместе с** `lidar`, а облака точек — самая тяжёлая часть набора. Если по объёму не проходим, глубина делается без эталона: монокулярная модель рисует карту, но сверять её будет не с чем. Порядок действий — в [10-waymo-download.md](10-waymo-download.md).
 
