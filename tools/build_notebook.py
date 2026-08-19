@@ -1,5 +1,6 @@
 """Сборка ноутбука занятия. Тексты правятся здесь, ноутбук пересобирается целиком."""
 import json
+import uuid
 from pathlib import Path
 
 def _lines(s: str) -> list[str]:
@@ -11,8 +12,12 @@ def _lines(s: str) -> list[str]:
     return [p + "\n" for p in parts[:-1]] + parts[-1:]
 
 
-md = lambda s: {"cell_type": "markdown", "metadata": {}, "source": _lines(s)}
-code = lambda s: {"cell_type": "code", "execution_count": None, "metadata": {},
+def _id() -> str:
+    return uuid.uuid4().hex[:8]
+
+
+md = lambda s: {"cell_type": "markdown", "id": _id(), "metadata": {}, "source": _lines(s)}
+code = lambda s: {"cell_type": "code", "id": _id(), "execution_count": None, "metadata": {},
                   "outputs": [], "source": _lines(s)}
 
 cells = [

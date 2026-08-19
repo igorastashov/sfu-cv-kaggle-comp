@@ -24,3 +24,4 @@ venv/
 Thumbs.db
 .vscode/
 .idea/
+notebooks/video/
