@@ -14,7 +14,6 @@ MODEL_DIR = Path(__file__).resolve().parent.parent / "models" / "sam3_hf"
 
 _cache: dict[str, object] = {}
 
-
 def load_model(model_dir: Path | str | None = None):
     """Модель грузится один раз за сессию и кешируется."""
     if "model" not in _cache:
@@ -113,7 +112,7 @@ def score(result: Result, clip, target: str = "VEHICLE") -> dict:
 
 def save_submission(result: Result, clip, target: str = "VEHICLE",
                     path: str = "submission.csv") -> pd.DataFrame:
-    """Файл для лидерборда: один прогон — одна строка."""
+    """Показатели одного прогона в файл, чтобы сравнивать попытки между собой."""
     row = score(result, clip, target=target)
     row["цель"] = target
     df = pd.DataFrame([row])

@@ -1,0 +1,8 @@
+.git
+.venv
+data
+models
+notebooks/*.ipynb_checkpoints
+**/__pycache__
+*.csv
+*.png

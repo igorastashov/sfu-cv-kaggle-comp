@@ -1,0 +1,68 @@
+# Заготовка для развёртывания стенда на отдельной машине.
+# Проверено: синтаксис и сборка. Не проверено: запуск на целевой машине.
+#
+# Запуск:
+#   cd docker
+#   cp .env.example .env      и вписать свой токен
+#   docker compose up -d --build
+#   docker compose logs -f stand
+#
+# Открыть: http://<адрес машины>:${JUPYTER_PORT}/lab?token=<токен из .env>
+
+services:
+  stand:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: sfu-cv-stand:latest
+    container_name: sfu-cv-stand
+    restart: unless-stopped
+
+    # Загрузчики данных держат кадры в разделяемой памяти.
+    # Значения по умолчанию у Docker малы, отсюда явное указание.
+    shm_size: "8gb"
+
+    ports:
+      - "${JUPYTER_PORT:-8888}:8888"
+
+    environment:
+      JUPYTER_TOKEN: ${JUPYTER_TOKEN:?задайте токен в .env}
+      HF_HOME: /cache/huggingface
+      # Отключает предупреждение о неавторизованных обращениях к хранилищу моделей.
+      HF_HUB_DISABLE_TELEMETRY: "1"
+
+    volumes:
+      # Код и ноутбуки. Правки видны сразу, пересборка не нужна.
+      - ../stand:/workspace/stand:ro
+      - ../notebooks:/workspace/notebooks
+      - ../tools:/workspace/tools:ro
+      - ../docs:/workspace/docs:ro
+
+      # Данные и модели лежат снаружи образа: вместе они весят около 4,3 ГБ.
+      # Пути внутри контейнера менять нельзя, вспомогательный код ищет их
+      # относительно своего расположения.
+      - ${DATA_PATH:-../data}:/workspace/data
+      - ${MODELS_PATH:-../models}:/workspace/models
+
+      # Кеш загруженных моделей переживает пересоздание контейнера.
+      - hf-cache:/cache/huggingface
+
+    # Доступ к ускорителю. Работает и под WSL, и на чистой Ubuntu при
+    # установленном nvidia-container-toolkit.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/api"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  hf-cache:
