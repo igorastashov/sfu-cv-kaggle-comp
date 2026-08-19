@@ -7,9 +7,20 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
+from . import session
 from .viz import color_of, draw
 
 OUT = Path(__file__).resolve().parent.parent / "notebooks" / "video"
+
+
+def _path(name: str) -> Path:
+    """Куда писать ролик.
+
+    Каждому ноутбуку своя папка. На занятии участники работают в копиях одного
+    ноутбука, и без разделения они пишут в одни и те же файлы: у кого-то ролик
+    подменяется чужим, а при одновременной записи выходит битый файл.
+    """
+    return OUT / session.name() / name
 
 
 def _writer(path: Path, fps: int):
@@ -42,7 +53,7 @@ def _fit(img: np.ndarray, max_width: int) -> np.ndarray:
 
 def raw(clip, fps: int = 10, max_width: int = 960, name: str = "запись.mp4"):
     """Выбранный отрезок как обычное видео, без разметки и без модели."""
-    path = OUT / name
+    path = _path(name)
     with _writer(path, fps) as w:
         for f in clip.frames:
             w.append_data(_fit(f, max_width))
@@ -55,7 +66,7 @@ def tracking(clip, result, fps: int = 10, max_width: int = 960,
     """Найденные объекты с номерами. Номер держится, пока модель не потеряла объект."""
     from PIL import Image, ImageDraw
 
-    path = OUT / name
+    path = _path(name)
     with _writer(path, fps) as w:
         for i in range(len(clip)):
             det = result.detections[result.detections["кадр"] == i]
@@ -94,7 +105,7 @@ def lidar_tracks(clip, result=None, fps: int = 10, span: float = 40,
                    "cyclist": "#2A9D8F", "sign": "#C9CCD1", "unknown": "#BBBBBB"}
 
     tr = trajectories(result, clip, segment) if result is not None else None
-    path = OUT / name
+    path = _path(name)
     seen: dict[int, list] = {}
 
     matplotlib.use("Agg")
@@ -162,8 +173,7 @@ def cameras(cams: dict, results: dict | None = None, fps: int = 10,
 
     for cam in PANORAMA:
         clip = cams[cam]
-        name = f"камера-{cam}.mp4"
-        path = OUT / name
+        path = _path(f"камера-{cam}.mp4")
         res = results.get(cam) if results else None
         with _writer(path, fps) as w:
             for i in range(len(clip)):

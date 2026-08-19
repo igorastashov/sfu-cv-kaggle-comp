@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 import torch
 
+from . import session
+
 MODEL_DIR = Path(__file__).resolve().parent.parent / "models" / "sam3_hf"
 
 _cache: dict[str, object] = {}
@@ -25,6 +27,25 @@ def load_model(model_dir: Path | str | None = None):
         _cache["model"] = AutoModel.from_pretrained(path, dtype=dtype).to(device).eval()
         _cache["device"], _cache["dtype"] = device, dtype
     return _cache["model"], _cache["processor"]
+
+
+def gpu_report() -> None:
+    """Сколько памяти ускорителя свободно.
+
+    Нужно ведущему до занятия. Каждый участник работает в своём вычислительном
+    ядре, и каждое ядро держит собственную копию моделей. Память освобождается
+    только при перезапуске ядра, а не по окончании расчёта.
+    """
+    if not torch.cuda.is_available():
+        print("Ускоритель не виден. Расчёт пойдёт на процессоре, это минуты на отрезок.")
+        return
+
+    free, total = torch.cuda.mem_get_info()
+    гб = 1024 ** 3
+    свой = torch.cuda.memory_reserved() / гб
+    print(f"Ускоритель: {torch.cuda.get_device_name(0)}")
+    print(f"Памяти всего {total / гб:.1f} ГБ, свободно {free / гб:.1f} ГБ, "
+          f"занято этим ядром {свой:.1f} ГБ")
 
 
 @dataclass
@@ -111,8 +132,14 @@ def score(result: Result, clip, target: str = "VEHICLE") -> dict:
 
 
 def save_submission(result: Result, clip, target: str = "VEHICLE",
-                    path: str = "submission.csv") -> pd.DataFrame:
-    """Показатели одного прогона в файл, чтобы сравнивать попытки между собой."""
+                    path: str | None = None) -> pd.DataFrame:
+    """Показатели одного прогона в файл, чтобы сравнивать попытки между собой.
+
+    Имя файла по умолчанию содержит имя ноутбука: на занятии участники работают
+    в одной среде, и общее имя означало бы, что они затирают результаты друг друга.
+    """
+    if path is None:
+        path = f"результат-{session.name()}.csv"
     row = score(result, clip, target=target)
     row["цель"] = target
     df = pd.DataFrame([row])
