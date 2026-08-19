@@ -100,8 +100,8 @@ def speed_of_objects(result, clip, frames=(0, 10), segment=None):
     return out.reset_index(drop=True)
 
 
-def bev(clip, frame: int = 0, span: float = 40, segment=None):
-    """Вид сверху: та же сцена с высоты птичьего полёта."""
+def xyz(clip, frame: int = 0, segment=None):
+    """Облако точек в метрах: x вперёд, y влево, z вверх."""
     segment = segment or find_segment()
     ts = clip.timestamps[frame]
     lid = _read(segment, "lidar", ts)
@@ -121,9 +121,16 @@ def bev(clip, frame: int = 0, span: float = 40, segment=None):
 
     sel = dist > 0
     A, I = np.meshgrid(az, incl)
-    x = dist[sel] * np.cos(I[sel]) * np.cos(A[sel])
-    y = dist[sel] * np.cos(I[sel]) * np.sin(A[sel])
-    z = dist[sel] * np.sin(I[sel])
+    return np.stack([
+        dist[sel] * np.cos(I[sel]) * np.cos(A[sel]),
+        dist[sel] * np.cos(I[sel]) * np.sin(A[sel]),
+        dist[sel] * np.sin(I[sel]),
+    ], axis=1)
+
+
+def bev(clip, frame: int = 0, span: float = 40, segment=None):
+    """Вид сверху: та же сцена с высоты птичьего полёта."""
+    x, y, z = xyz(clip, frame, segment).T
 
     fig, ax = plt.subplots(figsize=(9, 9))
     ax.scatter(y, x, c=z, s=0.4, cmap="viridis", vmin=-3, vmax=4)
