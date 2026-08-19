@@ -128,6 +128,109 @@ def xyz(clip, frame: int = 0, segment=None):
     ], axis=1)
 
 
+def trajectories(result, clip, segment=None):
+    """Где каждый объект находился на плоскости в каждом кадре.
+
+    Положение берётся по точкам дальномера, попавшим внутрь контура объекта.
+    """
+    import pandas as pd
+
+    rows = []
+    for frame in sorted(result.masks.keys()):
+        masks = result.masks[frame]
+        det = result.detections[result.detections["кадр"] == frame].reset_index(drop=True)
+        if not len(det):
+            continue
+        u, v, d = points(clip, frame, segment)
+        pts = xyz(clip, frame, segment)
+        # порядок точек в points и xyz совпадает не всегда, поэтому считаем по дальности
+        for i, tid in enumerate(det["трек"]):
+            if i >= len(masks):
+                break
+            inside = masks[i][v, u]
+            if inside.sum() < 3:
+                continue
+            dist = float(np.median(d[inside]))
+            cx = float(np.median(u[inside]))
+            # угол в плане по положению пикселя относительно центра кадра
+            w = clip.frames[frame].shape[1]
+            fov = np.deg2rad(50.4)  # передняя камера Waymo
+            ang = -(cx - w / 2) / w * fov
+            rows.append({"кадр": frame, "трек": int(tid),
+                         "вперёд, м": round(dist * np.cos(ang), 1),
+                         "вбок, м": round(dist * np.sin(ang), 1),
+                         "дальность, м": round(dist, 1)})
+    return pd.DataFrame(rows)
+
+
+def show_trajectories(result, clip, span: float = 30, segment=None):
+    """Путь каждого объекта на плоскости за весь отрезок."""
+    from .viz import color_of
+
+    tr = trajectories(result, clip, segment)
+    fig, ax = plt.subplots(figsize=(9, 9.5))
+    if len(tr):
+        base = xyz(clip, 0, segment)
+        ax.scatter(base[:, 1], base[:, 0], s=0.3, c="#DDE1E6")
+        for tid, g in tr.groupby("трек"):
+            c = color_of(tid) / 255
+            ax.plot(g["вбок, м"], g["вперёд, м"], "-o", ms=4, lw=2, color=c)
+            last = g.iloc[-1]
+            ax.text(last["вбок, м"], last["вперёд, м"] + 1.1, f"№{tid}",
+                    fontsize=10, ha="center", color=c, clip_on=True)
+    ax.plot(0, 0, marker="^", ms=16, color="#E63946")
+    ax.set_xlim(-span, span)
+    ax.set_ylim(-4, span * 1.8)
+    ax.set_xlabel("влево / вправо, м")
+    ax.set_ylabel("вперёд, м")
+    ax.set_title(f"Пути объектов по запросу «{result.prompt}»", fontsize=13)
+    ax.set_aspect("equal")
+    ax.grid(alpha=0.2)
+    fig.tight_layout()
+    return fig, tr
+
+
+def zone_report(result, clip, forward=(5.0, 25.0), side=(-4.0, 4.0), segment=None):
+    """Сколько объектов попало в заданную зону и когда.
+
+    Зона задаётся в метрах: сколько вперёд и сколько вбок от нашей машины.
+    Модель находит объекты, а решение принимает обычная проверка координат.
+    """
+    import pandas as pd
+
+    tr = trajectories(result, clip, segment)
+    if not len(tr):
+        return pd.DataFrame(), pd.DataFrame()
+
+    tr = tr.copy()
+    tr["в зоне"] = (tr["вперёд, м"].between(*forward) & tr["вбок, м"].between(*side))
+
+    по_кадрам = (tr.groupby("кадр")["в зоне"].sum()
+                 .rename("объектов в зоне").reset_index())
+    события = (tr[tr["в зоне"]].groupby("трек")
+               .agg(**{"первый кадр": ("кадр", "min"), "последний кадр": ("кадр", "max"),
+                       "ближе всего, м": ("дальность, м", "min")})
+               .reset_index())
+    return по_кадрам, события
+
+
+def show_zone(result, clip, forward=(5.0, 25.0), side=(-4.0, 4.0), span: float = 30,
+              segment=None):
+    """Зона на плоскости и пути объектов относительно неё."""
+    from matplotlib.patches import Rectangle
+
+    fig, tr = show_trajectories(result, clip, span=span, segment=segment)
+    ax = fig.axes[0]
+    ax.add_patch(Rectangle((side[0], forward[0]), side[1] - side[0],
+                           forward[1] - forward[0], facecolor="#E63946", alpha=0.12,
+                           edgecolor="#E63946", lw=2, ls="--"))
+    ax.text(side[0], forward[1] + 0.6, "зона контроля", color="#E63946", fontsize=11)
+    по_кадрам, события = zone_report(result, clip, forward, side, segment)
+    n = len(события)
+    ax.set_title(f"Запрос «{result.prompt}»: в зону попало объектов — {n}", fontsize=13)
+    return fig, события
+
+
 def bev(clip, frame: int = 0, span: float = 40, segment=None):
     """Вид сверху: та же сцена с высоты птичьего полёта."""
     x, y, z = xyz(clip, frame, segment).T
