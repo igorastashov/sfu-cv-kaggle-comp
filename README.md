@@ -24,9 +24,10 @@
 ## Документы
 
 - [docs/00-research-stand.md](docs/00-research-stand.md) — платформа, задача, данные, риски, хронометраж
-- [docs/10-waymo-download.md](docs/10-waymo-download.md) — выгрузка записи
-- [docs/20-notebook-logic.md](docs/20-notebook-logic.md) — логика занятия
-- [docs/30-scenario.md](docs/30-scenario.md) — сценарий ведения
+- [docs/10-waymo-download.md](docs/10-waymo-download.md) — как выгрузить сегмент записи
+- [docs/20-notebook-logic.md](docs/20-notebook-logic.md) — логика ноутбука занятия
+- [docs/30-scenario.md](docs/30-scenario.md) — сценарий для ведущего
+- [docs/40-perenos-stenda.md](docs/40-perenos-stenda.md) — упаковка, перенос и запуск на отдельной машине
 - [docs/СТИЛЬ.md](docs/СТИЛЬ.md) — правила ведения документов
 
 ## Локальное окружение

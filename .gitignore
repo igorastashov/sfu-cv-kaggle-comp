@@ -12,6 +12,9 @@ models/
 *.safetensors
 *.bin
 
+# пароль доступа к стенду — создаётся при упаковке, в git не уходит
+docker/.env
+
 # python
 __pycache__/
 *.py[cod]

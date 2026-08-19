@@ -77,16 +77,23 @@ def tracking(clip, result, fps: int = 10, max_width: int = 960,
     return show(path)
 
 
-def lidar_tracks(clip, result, fps: int = 10, span: float = 30,
-                 name: str = "лидар.mp4", segment=None):
-    """Вид сверху во времени. Серое — облако точек, цветное — найденные объекты.
+def lidar_tracks(clip, result=None, fps: int = 10, span: float = 40,
+                 name: str = "лидар.mp4", show_annotation: bool = True, segment=None):
+    """Вид сверху во времени.
 
-    Объекты найдены по камере. Их положение на плоскости берётся по точкам
-    дальномера, попавшим внутрь контура. По самому облаку точек поиск не ведётся.
+    Серое — облако точек дальномера, круговое.
+    Тонкие рамки — разметка, сделанная людьми: она тоже круговая и покрывает всё вокруг.
+    Цветные метки — объекты, найденные моделью, и только по выбранной камере.
+
+    Расхождение между рамкой и меткой видно глазом. Это и есть способ проверить,
+    насколько модель попадает в действительность.
     """
-    from .lidar import trajectories, xyz
+    from .lidar import annotated_boxes, trajectories, xyz
 
-    tr = trajectories(result, clip, segment)
+    CLASS_COLOR = {"vehicle": "#457B9D", "pedestrian": "#E63946",
+                   "cyclist": "#2A9D8F", "sign": "#C9CCD1", "unknown": "#BBBBBB"}
+
+    tr = trajectories(result, clip, segment) if result is not None else None
     path = OUT / name
     seen: dict[int, list] = {}
 
@@ -96,36 +103,52 @@ def lidar_tracks(clip, result, fps: int = 10, span: float = 30,
         for i in range(len(clip)):
             ax.clear()
             pts = xyz(clip, i, segment)
-            ax.scatter(pts[:, 1], pts[:, 0], s=0.4, c="#D5D9DE")
+            ax.scatter(pts[:, 1], pts[:, 0], s=0.4, c="#E3E6EA")
 
-            for _, r in tr[tr["кадр"] == i].iterrows():
-                tid = int(r["трек"])
-                seen.setdefault(tid, []).append((r["вбок, м"], r["вперёд, м"]))
-                c = color_of(tid) / 255
-                path_pts = np.array(seen[tid])
-                ax.plot(path_pts[:, 0], path_pts[:, 1], "-", lw=2, color=c, alpha=0.6)
-                ax.scatter([r["вбок, м"]], [r["вперёд, м"]], s=150, color=c,
-                           edgecolors="white", linewidths=1.5, zorder=3)
-                ax.text(r["вбок, м"], r["вперёд, м"] + 1.4, f"№{tid}", fontsize=10,
-                        ha="center", color=c, zorder=4)
+            if show_annotation:
+                for _, b in annotated_boxes(clip, i, segment).iterrows():
+                    if b["точек"] < 5:
+                        continue
+                    c = CLASS_COLOR.get(b["класс"], "#BBBBBB")
+                    L, W, h = b["длина, м"], b["ширина, м"], b["разворот"]
+                    corners = np.array([[-L / 2, -W / 2], [L / 2, -W / 2],
+                                        [L / 2, W / 2], [-L / 2, W / 2], [-L / 2, -W / 2]])
+                    rot = np.array([[np.cos(h), -np.sin(h)], [np.sin(h), np.cos(h)]])
+                    pc = corners @ rot.T + np.array([b["вперёд, м"], b["вбок, м"]])
+                    ax.plot(pc[:, 1], pc[:, 0], lw=1.4, color=c)
+
+            if tr is not None:
+                for _, r in tr[tr["кадр"] == i].iterrows():
+                    tid = int(r["трек"])
+                    seen.setdefault(tid, []).append((r["вбок, м"], r["вперёд, м"]))
+                    c = color_of(tid) / 255
+                    path_pts = np.array(seen[tid])
+                    ax.plot(path_pts[:, 0], path_pts[:, 1], "-", lw=2, color=c, alpha=0.6)
+                    ax.scatter([r["вбок, м"]], [r["вперёд, м"]], s=160, color=c,
+                               edgecolors="white", linewidths=1.5, zorder=3)
+                    ax.text(r["вбок, м"], r["вперёд, м"] + 1.6, f"№{tid}", fontsize=10,
+                            ha="center", color=c, zorder=4)
 
             ax.plot(0, 0, marker="^", ms=15, color="#E63946")
             ax.set_xlim(-span, span)
-            ax.set_ylim(-4, span * 1.7)
+            ax.set_ylim(-span, span)
             ax.set_xlabel("влево / вправо, м")
             ax.set_ylabel("вперёд, м")
-            ax.set_title(f"Кадр {i}. Объекты найдены камерой, расстояние измерено дальномером",
-                         fontsize=10)
+            заголовок = f"Кадр {i}. Тонкие рамки — разметка человеком по кругу"
+            if tr is not None:
+                заголовок += f", цветные метки — найдено камерой {clip.camera}"
+            ax.set_title(заголовок, fontsize=10)
             ax.set_aspect("equal")
             ax.grid(alpha=0.2)
             fig.canvas.draw()
             frame_rgb = np.asarray(fig.canvas.buffer_rgba())[..., :3]
-            # кодек принимает только чётные размеры
             frame_rgb = frame_rgb[:frame_rgb.shape[0] // 2 * 2, :frame_rgb.shape[1] // 2 * 2]
             w.append_data(frame_rgb.copy())
     plt.close(fig)
 
-    print(f"Объектов на плоскости: {len(seen)}")
+    if tr is not None:
+        print(f"Найдено камерой: {len(seen)} объектов. Размечено людьми вокруг машины: "
+              f"{annotated_boxes(clip, 0, segment)['объект'].nunique()}")
     return show(path)
 
 

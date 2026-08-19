@@ -121,13 +121,33 @@ md("""
 | человек, пешеход | person, pedestrian |
 | легковая машина | car |
 | любой транспорт | vehicle |
-| грузовик, автобус | truck, bus |
-| велосипед, велосипедист | bicycle, cyclist |
-| строительный кран | crane |
-| здание, дорога, тротуар | building, road, sidewalk |
-| светофор, знак, столб | traffic light, sign, pole |
-| дерево, растительность | tree, vegetation |
-| дорожный конус, ограждение | traffic cone, fence |
+| грузовик | truck |
+| автобус | bus |
+| прочий крупный транспорт | other vehicle |
+| прицеп | trailer |
+| велосипед | bicycle |
+| велосипедист | cyclist |
+| мотоцикл | motorcycle |
+| мотоциклист | motorcyclist |
+| вещь при пешеходе | pedestrian object |
+| дорожный знак | sign |
+| светофор | traffic light |
+| столб | pole |
+| дорожный конус | construction cone |
+| здание | building |
+| дорога | road |
+| разметка полосы | lane marker |
+| надпись на асфальте | road marker |
+| тротуар | sidewalk |
+| растительность, дерево | vegetation, tree |
+| небо | sky |
+| земля, грунт | ground |
+| птица | bird |
+| животное | animal |
+
+Перечень взят из разметки этой записи: люди размечали ровно эти классы, значит
+объекты таких типов в сцене есть. Модель при этом классами не ограничена и найдёт
+всё, что вы опишете словами: crane, fence, window, wheel, license plate, umbrella.
 
 Работают и словосочетания: white car, person crossing the road, parked truck.
 

@@ -31,32 +31,77 @@ def _read(segment, component, ts, laser=TOP_LASER):
     return _table(segment, component, laser).loc[[ts]]
 
 
-def points(clip, frame: int = 0, segment=None):
-    """Точки лидара, попавшие в кадр: пиксель u, пиксель v, расстояние в метрах."""
-    key = ("pts", id(clip), frame)
+def _grids(clip, frame: int = 0, segment=None):
+    """Дальность, проекции на камеры и координаты в метрах — на одной сетке.
+
+    Раньше проекции и облако точек считались по разным выборкам, из-за чего
+    сопоставить пиксель с точкой в пространстве было нельзя.
+    """
+    key = ("grids", id(clip), frame)
     if key in _cache:
         return _cache[key]
+
     segment = segment or find_segment()
     ts = clip.timestamps[frame]
-    h, w = clip.frames[frame].shape[:2]
-
     lid = _read(segment, "lidar", ts)
     prj = _read(segment, "lidar_camera_projection", ts)
 
-    rng = np.array(lid["[LiDARComponent].range_image_return1.values"].iloc[0]).reshape(
-        np.array(lid["[LiDARComponent].range_image_return1.shape"].iloc[0]))
+    ck = ("calib", str(segment))
+    if ck not in _cache:
+        c = pq.read_table(next((segment / "lidar_calibration").glob("*.parquet"))).to_pandas()
+        _cache[ck] = c[c["key.laser_name"] == TOP_LASER].iloc[0]
+    cal = _cache[ck]
+
+    shape = np.array(lid["[LiDARComponent].range_image_return1.shape"].iloc[0])
+    rng = np.array(lid["[LiDARComponent].range_image_return1.values"].iloc[0]).reshape(shape)
     proj = np.array(prj["[LiDARCameraProjectionComponent].range_image_return1.values"].iloc[0]).reshape(
         np.array(prj["[LiDARCameraProjectionComponent].range_image_return1.shape"].iloc[0]))
+    dist = rng[..., 0]
 
-    dist, cam_id = rng[..., 0], proj[..., 0]
-    sel = (cam_id == clip.camera) & (dist > 0)
+    incl = np.array(cal["[LiDARCalibrationComponent].beam_inclination.values"])
+    h, w = dist.shape
+    if len(incl) != h:
+        incl = np.linspace(cal["[LiDARCalibrationComponent].beam_inclination.min"],
+                           cal["[LiDARCalibrationComponent].beam_inclination.max"], h)
+    az = np.linspace(np.pi, -np.pi, w)
+    A, I = np.meshgrid(az, incl)
+
+    x = dist * np.cos(I) * np.cos(A)
+    y = dist * np.cos(I) * np.sin(A)
+    z = dist * np.sin(I)
+
+    _cache[key] = (dist, proj, np.stack([x, y, z], axis=-1))
+    return _cache[key]
+
+
+def points3d(clip, frame: int = 0, segment=None):
+    """Точки, попавшие в кадр: пиксель u, пиксель v, дальность и координаты в метрах.
+
+    Координаты берутся из самого измерения, а не восстанавливаются по углу обзора.
+    Поэтому работают для любой камеры, а не только для передней.
+    """
+    key = ("p3d", id(clip), frame)
+    if key in _cache:
+        return _cache[key]
+
+    dist, proj, xyz_grid = _grids(clip, frame, segment)
+    h, w = clip.frames[frame].shape[:2]
+    sel = (proj[..., 0] == clip.camera) & (dist > 0)
+
     u = proj[..., 1][sel].astype(int)
     v = proj[..., 2][sel].astype(int)
     d = dist[sel]
+    P = xyz_grid[sel]
 
     ok = (u >= 0) & (u < w) & (v >= 0) & (v < h)
-    _cache[key] = (u[ok], v[ok], d[ok])
+    _cache[key] = (u[ok], v[ok], d[ok], P[ok])
     return _cache[key]
+
+
+def points(clip, frame: int = 0, segment=None):
+    """Точки лидара, попавшие в кадр: пиксель u, пиксель v, расстояние в метрах."""
+    u, v, d, _ = points3d(clip, frame, segment)
+    return u, v, d
 
 
 def overlay(clip, frame: int = 0, max_m: float = 60, size: float = 15, segment=None):
@@ -121,37 +166,8 @@ def speed_of_objects(result, clip, frames=(0, 10), segment=None):
 
 def xyz(clip, frame: int = 0, segment=None):
     """Облако точек в метрах: x вперёд, y влево, z вверх."""
-    key = ("cloud", id(clip), frame)
-    if key in _cache:
-        return _cache[key]
-    segment = segment or find_segment()
-    ts = clip.timestamps[frame]
-    lid = _read(segment, "lidar", ts)
-    ck = ("calib", str(segment))
-    if ck not in _cache:
-        c = pq.read_table(next((segment / "lidar_calibration").glob("*.parquet"))).to_pandas()
-        _cache[ck] = c[c["key.laser_name"] == TOP_LASER].iloc[0]
-    cal = _cache[ck]
-
-    shape = np.array(lid["[LiDARComponent].range_image_return1.shape"].iloc[0])
-    rng = np.array(lid["[LiDARComponent].range_image_return1.values"].iloc[0]).reshape(shape)
-    dist = rng[..., 0]
-
-    incl = np.array(cal["[LiDARCalibrationComponent].beam_inclination.values"])
-    h, w = dist.shape
-    if len(incl) != h:
-        incl = np.linspace(cal["[LiDARCalibrationComponent].beam_inclination.min"],
-                           cal["[LiDARCalibrationComponent].beam_inclination.max"], h)
-    az = np.linspace(np.pi, -np.pi, w)
-
-    sel = dist > 0
-    A, I = np.meshgrid(az, incl)
-    _cache[key] = np.stack([
-        dist[sel] * np.cos(I[sel]) * np.cos(A[sel]),
-        dist[sel] * np.cos(I[sel]) * np.sin(A[sel]),
-        dist[sel] * np.sin(I[sel]),
-    ], axis=1)
-    return _cache[key]
+    dist, _, xyz_grid = _grids(clip, frame, segment)
+    return xyz_grid[dist > 0]
 
 
 def trajectories(result, clip, segment=None):
@@ -167,23 +183,19 @@ def trajectories(result, clip, segment=None):
         det = result.detections[result.detections["кадр"] == frame].reset_index(drop=True)
         if not len(det):
             continue
-        u, v, d = points(clip, frame, segment)
+        u, v, d, P = points3d(clip, frame, segment)
         for i, tid in enumerate(det["трек"]):
             if i >= len(masks):
                 break
             inside = masks[i][v, u]
             if inside.sum() < 3:
                 continue
-            dist = float(np.median(d[inside]))
-            cx = float(np.median(u[inside]))
-            # угол в плане по положению пикселя относительно центра кадра
-            w = clip.frames[frame].shape[1]
-            fov = np.deg2rad(50.4)  # передняя камера Waymo
-            ang = -(cx - w / 2) / w * fov
+            # медиана устойчива к точкам фона, попавшим в контур по краю
+            xy = np.median(P[inside][:, :2], axis=0)
             rows.append({"кадр": frame, "трек": int(tid),
-                         "вперёд, м": round(dist * np.cos(ang), 1),
-                         "вбок, м": round(dist * np.sin(ang), 1),
-                         "дальность, м": round(dist, 1)})
+                         "вперёд, м": round(float(xy[0]), 1),
+                         "вбок, м": round(float(xy[1]), 1),
+                         "дальность, м": round(float(np.median(d[inside])), 1)})
     return pd.DataFrame(rows)
 
 
@@ -271,3 +283,58 @@ def bev(clip, frame: int = 0, span: float = 40, segment=None):
     ax.grid(alpha=0.2)
     fig.tight_layout()
     return fig
+
+
+# --------------------------------------------- разметка объёма, сделанная людьми
+
+LIDAR_CLASSES = {0: "unknown", 1: "vehicle", 2: "pedestrian", 3: "sign", 4: "cyclist"}
+
+
+def annotated_boxes(clip, frame: int = 0, segment=None):
+    """Объёмные рамки, размеченные людьми: положение, размер, разворот, номер, скорость.
+
+    Разметка круговая и не зависит от того, какая камера выбрана.
+    """
+    import pandas as pd
+
+    segment = segment or find_segment()
+    key = ("boxes", str(segment))
+    if key not in _cache:
+        df = pq.read_table(next((segment / "lidar_box").glob("*.parquet"))).to_pandas()
+        _cache[key] = df.set_index("key.frame_timestamp_micros")
+    table = _cache[key]
+
+    ts = clip.timestamps[frame]
+    if ts not in table.index:
+        return pd.DataFrame()
+    rows = table.loc[[ts]]
+
+    B = "[LiDARBoxComponent]"
+    return pd.DataFrame({
+        "объект": rows["key.laser_object_id"].values,
+        "класс": rows[f"{B}.type"].map(LIDAR_CLASSES).fillna("unknown").values,
+        "вперёд, м": rows[f"{B}.box.center.x"].round(1).values,
+        "вбок, м": rows[f"{B}.box.center.y"].round(1).values,
+        "длина, м": rows[f"{B}.box.size.x"].round(1).values,
+        "ширина, м": rows[f"{B}.box.size.y"].round(1).values,
+        "разворот": rows[f"{B}.box.heading"].values,
+        "точек": rows[f"{B}.num_lidar_points_in_box"].values,
+        "м/с": np.hypot(rows[f"{B}.speed.x"], rows[f"{B}.speed.y"]).round(1).values,
+    }).reset_index(drop=True)
+
+
+def association(clip, frame: int = 0, segment=None):
+    """Какой объект на камере соответствует какому объекту в облаке точек."""
+    import pandas as pd
+
+    segment = segment or find_segment()
+    key = ("assoc", str(segment))
+    if key not in _cache:
+        f = next((segment / "camera_to_lidar_box_association").glob("*.parquet"))
+        _cache[key] = pq.read_table(f).to_pandas()
+    df = _cache[key]
+
+    sel = df[(df["key.frame_timestamp_micros"] == clip.timestamps[frame])
+             & (df["key.camera_name"] == clip.camera)]
+    return pd.DataFrame({"объект на камере": sel["key.camera_object_id"].values,
+                         "объект в облаке": sel["key.laser_object_id"].values})

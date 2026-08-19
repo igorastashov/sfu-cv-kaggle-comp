@@ -25,9 +25,13 @@ services:
     ports:
       - "${JUPYTER_PORT:-8888}:8888"
 
+    gpus: all
+
     environment:
       JUPYTER_TOKEN: ${JUPYTER_TOKEN:?задайте токен в .env}
       HF_HOME: /cache/huggingface
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
       # Отключает предупреждение о неавторизованных обращениях к хранилищу моделей.
       HF_HUB_DISABLE_TELEMETRY: "1"
 
