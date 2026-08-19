@@ -50,6 +50,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--start", action="store_true", help="поднять стенд после синхронизации")
     p.add_argument("--restart", action="store_true", help="docker compose restart после синхронизации")
     p.add_argument("--status", action="store_true", help="только проверить удалённый стенд")
+    p.add_argument("--quiet", action="store_true", help="не печатать ссылку и токен")
     return p.parse_args()
 
 
@@ -222,7 +223,8 @@ def main() -> None:
         elif args.restart:
             restart_stand(client, remote)
 
-        show_status(client, remote, args.host)
+        if not args.quiet:
+            show_status(client, remote, args.host)
     finally:
         client.close()
 

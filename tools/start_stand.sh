@@ -97,6 +97,23 @@ for _ in $(seq 1 60); do
     sleep 5
 done
 
+# Проверка ускорителя изнутри контейнера. Снаружи он может быть виден, а внутри
+# нет: на RedOS в настройках доступа выставлено no-cgroups = true, и без полных
+# прав контейнер до устройств не достаёт. Расчёт при этом молча уходит
+# на процессор, и обнаруживается это только по времени счёта.
+printf '\nПроверяю ускоритель внутри контейнера.\n'
+gpu_name=$(docker exec sfu-cv-stand python -c \
+    'import torch; print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else "")' \
+    2>/dev/null | tr -d '\r')
+
+if [ -n "$gpu_name" ]; then
+    printf 'Ускоритель в контейнере: %s\n' "$gpu_name"
+else
+    printf 'Ускоритель в контейнере НЕ виден. Расчёт пойдёт на процессоре.\n'
+    printf 'Проверьте в docker/compose.yaml строки privileged и runtime,\n'
+    printf 'а на машине — no-cgroups = true в /etc/nvidia-container-runtime/config.toml.\n'
+fi
+
 ip=$(hostname -I 2>/dev/null | awk '{print $1}')
 ip=${ip:-АДРЕС-МАШИНЫ}
 
