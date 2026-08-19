@@ -67,7 +67,8 @@ def _grids(clip, frame: int = 0, segment=None):
     A, I = np.meshgrid(az, incl)
 
     x = dist * np.cos(I) * np.cos(A)
-    y = dist * np.cos(I) * np.sin(A)
+    # в данных ось направлена влево. Разворачиваем, чтобы на карте право было справа
+    y = -dist * np.cos(I) * np.sin(A)
     z = dist * np.sin(I)
 
     _cache[key] = (dist, proj, np.stack([x, y, z], axis=-1))
@@ -196,7 +197,8 @@ def trajectories(result, clip, segment=None):
                          "вперёд, м": round(float(xy[0]), 1),
                          "вбок, м": round(float(xy[1]), 1),
                          "дальность, м": round(float(np.median(d[inside])), 1)})
-    return pd.DataFrame(rows)
+    # пустая таблица тоже должна иметь колонки, иначе обращение к ним падает
+    return pd.DataFrame(rows, columns=["кадр", "трек", "вперёд, м", "вбок, м", "дальность, м"])
 
 
 def show_trajectories(result, clip, span: float = 30, segment=None):
@@ -314,10 +316,10 @@ def annotated_boxes(clip, frame: int = 0, segment=None):
         "объект": rows["key.laser_object_id"].values,
         "класс": rows[f"{B}.type"].map(LIDAR_CLASSES).fillna("unknown").values,
         "вперёд, м": rows[f"{B}.box.center.x"].round(1).values,
-        "вбок, м": rows[f"{B}.box.center.y"].round(1).values,
+        "вбок, м": (-rows[f"{B}.box.center.y"]).round(1).values,
         "длина, м": rows[f"{B}.box.size.x"].round(1).values,
         "ширина, м": rows[f"{B}.box.size.y"].round(1).values,
-        "разворот": rows[f"{B}.box.heading"].values,
+        "разворот": (-rows[f"{B}.box.heading"]).values,
         "точек": rows[f"{B}.num_lidar_points_in_box"].values,
         "м/с": np.hypot(rows[f"{B}.speed.x"], rows[f"{B}.speed.y"]).round(1).values,
     }).reset_index(drop=True)

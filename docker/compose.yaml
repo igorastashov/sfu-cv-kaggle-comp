@@ -25,7 +25,20 @@ services:
     ports:
       - "${JUPYTER_PORT:-8888}:8888"
 
-    gpus: all
+    # Целевая машина работает под RedOS, и там в настройках доступа к ускорителю
+    # выставлено no-cgroups = true (файл /etc/nvidia-container-runtime/config.toml).
+    # При этом обычный проброс не выдаёт контейнеру права на устройства ускорителя,
+    # и он их не видит. Лечится полными правами. Так же сделано в рабочем
+    # развёртывании соседнего сервиса на этой же машине.
+    privileged: true
+    runtime: nvidia
+
+    # Замена полным правам, если они нежелательны: перечислить устройства явно.
+    # На машине без ускорителя обе записи придётся убрать, иначе запуск не пройдёт.
+    # devices:
+    #   - "/dev/nvidia0:/dev/nvidia0"
+    #   - "/dev/nvidiactl:/dev/nvidiactl"
+    #   - "/dev/nvidia-uvm:/dev/nvidia-uvm"
 
     environment:
       JUPYTER_TOKEN: ${JUPYTER_TOKEN:?задайте токен в .env}
