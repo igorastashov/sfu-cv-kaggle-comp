@@ -26,13 +26,18 @@ def show(path: str | Path, width: int = 900):
                  html_attributes="controls loop autoplay muted")
 
 
+def _even(img: np.ndarray) -> np.ndarray:
+    """Кодек принимает только чётные стороны. У боковых камер высота другая."""
+    return img[:img.shape[0] // 2 * 2, :img.shape[1] // 2 * 2]
+
+
 def _fit(img: np.ndarray, max_width: int) -> np.ndarray:
     if img.shape[1] <= max_width:
-        return img
+        return _even(img)
     h = int(img.shape[0] * max_width / img.shape[1])
     ys = (np.arange(h) * img.shape[0] / h).astype(int)
     xs = (np.arange(max_width) * img.shape[1] / max_width).astype(int)
-    return img[np.ix_(ys, xs)]
+    return _even(img[np.ix_(ys, xs)])
 
 
 def raw(clip, fps: int = 10, max_width: int = 960, name: str = "запись.mp4"):
@@ -122,3 +127,27 @@ def lidar_tracks(clip, result, fps: int = 10, span: float = 30,
 
     print(f"Объектов на плоскости: {len(seen)}")
     return show(path)
+
+
+def cameras(cams: dict, results: dict | None = None, fps: int = 10,
+            max_width: int = 640):
+    """Отдельный ролик на каждую камеру. Видно, как объект переходит из одной в соседнюю."""
+    from IPython.display import HTML, display
+
+    from .data import CAMERAS
+    from .multicam import PANORAMA
+
+    for cam in PANORAMA:
+        clip = cams[cam]
+        name = f"камера-{cam}.mp4"
+        path = OUT / name
+        res = results.get(cam) if results else None
+        with _writer(path, fps) as w:
+            for i in range(len(clip)):
+                frame = clip.frames[i]
+                if res is not None:
+                    det = res.detections[res.detections["кадр"] == i]
+                    frame = draw(frame, det, res.masks.get(i), thickness=5)
+                w.append_data(_fit(frame, max_width))
+        display(HTML(f"<b>{CAMERAS[cam]}</b>"))
+        display(show(path, width=max_width))

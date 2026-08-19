@@ -11,9 +11,23 @@
 
 **Ресерч.** Реализации пока нет.
 
+## Ноутбук занятия
+
+[notebooks/1_chto-vidit-mashina.ipynb](notebooks/1_chto-vidit-mashina.ipynb) — одиннадцать
+разделов: обзор с пяти камер, поиск объектов по текстовому запросу, сопровождение
+роликом, ручная разметка сцены, лазерный дальномер, глубина по одному снимку,
+пути объектов на плоскости.
+
+Собирается из [tools/build_notebook.py](tools/build_notebook.py): тексты правятся там,
+ноутбук пересобирается целиком.
+
 ## Документы
 
 - [docs/00-research-stand.md](docs/00-research-stand.md) — платформа, задача, данные, риски, хронометраж
+- [docs/10-waymo-download.md](docs/10-waymo-download.md) — выгрузка записи
+- [docs/20-notebook-logic.md](docs/20-notebook-logic.md) — логика занятия
+- [docs/30-scenario.md](docs/30-scenario.md) — сценарий ведения
+- [docs/СТИЛЬ.md](docs/СТИЛЬ.md) — правила ведения документов
 
 ## Локальное окружение
 

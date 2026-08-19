@@ -14,13 +14,13 @@ from .lidar import xyz
 
 # классы паноптической разметки Waymo
 SEMANTIC = {
-    0: "не размечено", 1: "наша машина", 2: "легковая", 3: "грузовик", 4: "автобус",
-    5: "крупный транспорт", 6: "велосипед", 7: "мотоцикл", 8: "прицеп",
-    9: "пешеход", 10: "велосипедист", 11: "мотоциклист", 12: "птица",
-    13: "животное", 14: "конус", 15: "столб", 16: "вещь пешехода", 17: "знак",
-    18: "светофор", 19: "здание", 20: "дорога", 21: "разметка полосы",
-    22: "дорожный знак на асфальте", 23: "тротуар", 24: "растительность",
-    25: "небо", 26: "земля", 27: "подвижное", 28: "неподвижное",
+    0: "unlabeled", 1: "ego vehicle", 2: "car", 3: "truck", 4: "bus",
+    5: "other vehicle", 6: "bicycle", 7: "motorcycle", 8: "trailer",
+    9: "pedestrian", 10: "cyclist", 11: "motorcyclist", 12: "bird",
+    13: "animal", 14: "construction cone", 15: "pole", 16: "pedestrian object",
+    17: "sign", 18: "traffic light", 19: "building", 20: "road",
+    21: "lane marker", 22: "road marker", 23: "sidewalk", 24: "vegetation",
+    25: "sky", 26: "ground", 27: "dynamic", 28: "static",
 }
 
 _CMAP = plt.get_cmap("tab20")
@@ -91,7 +91,7 @@ def class_areas(clip, frame: int = 0, segment=None) -> pd.DataFrame:
     if sem.ndim == 3:
         sem = sem[..., 0]
     vals, counts = np.unique(sem, return_counts=True)
-    return (pd.DataFrame({"класс": [SEMANTIC.get(int(v), str(v)) for v in vals],
+    return (pd.DataFrame({"class": [SEMANTIC.get(int(v), str(v)) for v in vals],
                           "доля кадра, %": (100 * counts / sem.size).round(1)})
             .sort_values("доля кадра, %", ascending=False).reset_index(drop=True))
 

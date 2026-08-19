@@ -10,14 +10,32 @@ from .data import find_segment
 TOP_LASER = 1
 
 
+_cache: dict = {}
+
+
+def _table(segment, component, laser=TOP_LASER):
+    """Компонент читается целиком один раз и держится в памяти.
+
+    Раньше файл перечитывался на каждый кадр, и вид сверху собирался минутами.
+    """
+    key = (str(segment), component, laser)
+    if key not in _cache:
+        f = next((segment / component).glob("*.parquet"))
+        df = pq.read_table(f, filters=[("key.laser_name", "=", laser)]).to_pandas()
+        _cache[key] = df.set_index("key.frame_timestamp_micros")
+    return _cache[key]
+
+
 def _read(segment, component, ts, laser=TOP_LASER):
-    f = next((segment / component).glob("*.parquet"))
-    return pq.read_table(f, filters=[("key.laser_name", "=", laser),
-                                     ("key.frame_timestamp_micros", "=", ts)]).to_pandas()
+    """Одна строка компонента по метке времени."""
+    return _table(segment, component, laser).loc[[ts]]
 
 
 def points(clip, frame: int = 0, segment=None):
     """Точки лидара, попавшие в кадр: пиксель u, пиксель v, расстояние в метрах."""
+    key = ("pts", id(clip), frame)
+    if key in _cache:
+        return _cache[key]
     segment = segment or find_segment()
     ts = clip.timestamps[frame]
     h, w = clip.frames[frame].shape[:2]
@@ -37,7 +55,8 @@ def points(clip, frame: int = 0, segment=None):
     d = dist[sel]
 
     ok = (u >= 0) & (u < w) & (v >= 0) & (v < h)
-    return u[ok], v[ok], d[ok]
+    _cache[key] = (u[ok], v[ok], d[ok])
+    return _cache[key]
 
 
 def overlay(clip, frame: int = 0, max_m: float = 60, size: float = 15, segment=None):
@@ -102,11 +121,17 @@ def speed_of_objects(result, clip, frames=(0, 10), segment=None):
 
 def xyz(clip, frame: int = 0, segment=None):
     """Облако точек в метрах: x вперёд, y влево, z вверх."""
+    key = ("cloud", id(clip), frame)
+    if key in _cache:
+        return _cache[key]
     segment = segment or find_segment()
     ts = clip.timestamps[frame]
     lid = _read(segment, "lidar", ts)
-    cal = pq.read_table(next((segment / "lidar_calibration").glob("*.parquet"))).to_pandas()
-    cal = cal[cal["key.laser_name"] == TOP_LASER].iloc[0]
+    ck = ("calib", str(segment))
+    if ck not in _cache:
+        c = pq.read_table(next((segment / "lidar_calibration").glob("*.parquet"))).to_pandas()
+        _cache[ck] = c[c["key.laser_name"] == TOP_LASER].iloc[0]
+    cal = _cache[ck]
 
     shape = np.array(lid["[LiDARComponent].range_image_return1.shape"].iloc[0])
     rng = np.array(lid["[LiDARComponent].range_image_return1.values"].iloc[0]).reshape(shape)
@@ -121,11 +146,12 @@ def xyz(clip, frame: int = 0, segment=None):
 
     sel = dist > 0
     A, I = np.meshgrid(az, incl)
-    return np.stack([
+    _cache[key] = np.stack([
         dist[sel] * np.cos(I[sel]) * np.cos(A[sel]),
         dist[sel] * np.cos(I[sel]) * np.sin(A[sel]),
         dist[sel] * np.sin(I[sel]),
     ], axis=1)
+    return _cache[key]
 
 
 def trajectories(result, clip, segment=None):
@@ -142,8 +168,6 @@ def trajectories(result, clip, segment=None):
         if not len(det):
             continue
         u, v, d = points(clip, frame, segment)
-        pts = xyz(clip, frame, segment)
-        # порядок точек в points и xyz совпадает не всегда, поэтому считаем по дальности
         for i, tid in enumerate(det["трек"]):
             if i >= len(masks):
                 break

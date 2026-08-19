@@ -79,8 +79,6 @@ def compare(clip, frame: int = 0, max_m: float = 60, segment=None):
     fig.colorbar(s, ax=axes[2], fraction=0.03).set_label("метры")
     for a in axes:
         a.axis("off")
-    fig.suptitle("Средняя ошибка {} м, в пределах 10% попадает {}".format(
-        stats["средняя ошибка, м"], stats["ошибка в пределах 10%"]), fontsize=14)
     fig.tight_layout()
     return fig, stats
 
