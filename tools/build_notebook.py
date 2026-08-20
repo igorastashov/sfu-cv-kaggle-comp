@@ -1,6 +1,7 @@
 """Сборка короткого ноутбука. Настройки вводятся по ходу, под каждую задачу свои."""
 import hashlib
 import json
+import sys
 from pathlib import Path
 
 
@@ -359,5 +360,12 @@ nb = {
 
 out = Path(__file__).resolve().parent.parent / "notebooks" / "1_chto-vidit-mashina.ipynb"
 out.parent.mkdir(exist_ok=True)
+
+if out.exists() and "--force" not in sys.argv:
+    raise SystemExit(
+        "Файл " + out.name + " уже существует и правится вручную. "
+        "Пересборка затрёт пояснительные ячейки. "
+        "Если это действительно нужно: python tools/build_notebook.py --force")
+
 out.write_text(json.dumps(nb, ensure_ascii=False, indent=1), encoding="utf-8")
 print("готово:", out.name, len(cells), "ячеек")

@@ -24,12 +24,7 @@ def load_model(model_dir: Path | str | None = None):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         dtype = torch.bfloat16 if device == "cuda" else torch.float32
         _cache["processor"] = AutoProcessor.from_pretrained(path)
-        # Доверие к хранилищу нужно не для весов, они лежат локально. Оно разрешает
-        # подтянуть скомпилированные операции обработки контуров. Без него удаление
-        # дублей, заливка дыр и чистка крапа пропускаются, а в выводе ячейки
-        # появляется предупреждение. Проверено прогоном на целевом окружении.
-        _cache["model"] = AutoModel.from_pretrained(
-            path, dtype=dtype, trust_remote_code=True).to(device).eval()
+        _cache["model"] = AutoModel.from_pretrained(path, dtype=dtype).to(device).eval()
         _cache["device"], _cache["dtype"] = device, dtype
     return _cache["model"], _cache["processor"]
 
