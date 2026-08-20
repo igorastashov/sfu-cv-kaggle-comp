@@ -1,6 +1,6 @@
 """Сборка короткого ноутбука. Настройки вводятся по ходу, под каждую задачу свои."""
+import hashlib
 import json
-import uuid
 from pathlib import Path
 
 
@@ -9,12 +9,16 @@ def _lines(s: str) -> list[str]:
     return [p + "\n" for p in parts[:-1]] + parts[-1:]
 
 
-def _id() -> str:
-    return uuid.uuid4().hex[:8]
+def _id(source: str) -> str:
+    """Идентификатор выводится из содержимого.
+
+    Случайный давал новый файл при каждой пересборке, даже когда тексты не менялись.
+    """
+    return hashlib.sha1(source.encode("utf-8")).hexdigest()[:8]
 
 
-md = lambda s: {"cell_type": "markdown", "id": _id(), "metadata": {}, "source": _lines(s)}
-code = lambda s: {"cell_type": "code", "id": _id(), "execution_count": None, "metadata": {},
+md = lambda s: {"cell_type": "markdown", "id": _id(s), "metadata": {}, "source": _lines(s)}
+code = lambda s: {"cell_type": "code", "id": _id(s), "execution_count": None, "metadata": {},
                   "outputs": [], "source": _lines(s)}
 
 cells = [
